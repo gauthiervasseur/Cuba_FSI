@@ -1,0 +1,12 @@
+field,n,correct,hallucinated,missed,accuracy
+prev_day_max_affectation_mw,27,26,0,1,0.963
+prev_day_max_affectation_time,27,26,0,1,0.963
+snapshot_time,27,27,0,0,1.0
+snapshot_availability_mw,27,27,0,0,1.0
+snapshot_demand_mw,27,27,0,0,1.0
+snapshot_affectation_mw,26,26,0,0,1.0
+forecast_availability_mw,27,27,0,0,1.0
+forecast_demand_mw,27,27,0,0,1.0
+forecast_deficit_mw,27,27,0,0,1.0
+forecast_reserve_mw,27,27,0,0,1.0
+forecast_affectation_mw,27,27,0,0,1.0

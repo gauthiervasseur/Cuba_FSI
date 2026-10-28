@@ -1,0 +1,10 @@
+# Raw HTTP cache, SQLite database and run logs: rebuildable, large, and they hold full article texts.
+data/
+.venv/
+__pycache__/
+*.egg-info/
+.DS_Store
+
+# Files carrying the full text of republished articles are not redistributed (see README).
+outputs/review_queue.csv
+outputs/gold_set_*.csv

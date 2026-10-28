@@ -1,0 +1,20 @@
+[project]
+name = "cuba-grid"
+version = "0.1.0"
+description = "Daily Cuban electric grid (UNE) deficit notes: collection, extraction, validation"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=1.0",
+    "beautifulsoup4>=4.12",
+    "requests>=2.31",
+]
+
+[project.scripts]
+cuba-grid = "cuba_grid.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cuba_grid"]
