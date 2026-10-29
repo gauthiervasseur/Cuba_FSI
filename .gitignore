@@ -8,3 +8,6 @@ __pycache__/
 # Files carrying the full text of republished articles are not redistributed (see README).
 outputs/review_queue.csv
 outputs/gold_set_*.csv
+
+# Note browser: embeds full article texts.
+site/

@@ -43,6 +43,11 @@ def main() -> None:
     c.add_argument("gold_csv")
     c.add_argument("--method", default=f"llm:{LLM_MODEL}", help="'regex' or 'llm:<model>'")
 
+    sub.add_parser("build-site", help="write the read-only note browser to site/index.html")
+
+    c = sub.add_parser("serve", help="note browser with the review form, on localhost")
+    c.add_argument("--port", type=int, default=8770)
+
     sub.add_parser("status", help="what is in the database")
 
     a = p.parse_args()
@@ -74,6 +79,12 @@ def main() -> None:
     elif a.cmd == "gold-eval":
         from .gold import evaluate
         evaluate(a.gold_csv, a.method)
+    elif a.cmd == "build-site":
+        from .site import build
+        build()
+    elif a.cmd == "serve":
+        from .site import serve
+        serve(a.port)
     elif a.cmd == "status":
         from . import db
         con = db.connect()

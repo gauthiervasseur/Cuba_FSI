@@ -29,6 +29,16 @@ CREATE TABLE IF NOT EXISTS extractions (
     extracted_at  TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (raw_note_id, method, prompt_version)
 );
+
+-- A person's reading of a note. It overrides every extraction for that note.
+CREATE TABLE IF NOT EXISTS reviews (
+    raw_note_id    INTEGER PRIMARY KEY REFERENCES raw_notes(id),
+    status         TEXT NOT NULL,         -- 'validated' (use payload) or 'rejected' (not a usable daily note)
+    payload        TEXT NOT NULL,         -- {field: value} as the reviewer confirmed it; null = not stated
+    interpretation TEXT,                  -- how the reviewer read the note
+    reviewer       TEXT,
+    reviewed_at    TEXT DEFAULT (datetime('now'))
+);
 """
 
 
@@ -62,3 +72,21 @@ def save_extraction(con, raw_note_id, method, prompt_version, payload: dict) -> 
         (raw_note_id, method, prompt_version or "", json.dumps(payload, ensure_ascii=False)),
     )
     con.commit()
+
+
+def save_review(con, raw_note_id, status, payload: dict, interpretation, reviewer) -> None:
+    con.execute(
+        """INSERT OR REPLACE INTO reviews (raw_note_id, status, payload, interpretation, reviewer)
+           VALUES (?,?,?,?,?)""",
+        (raw_note_id, status, json.dumps(payload, ensure_ascii=False), interpretation, reviewer),
+    )
+    con.commit()
+
+
+def delete_review(con, raw_note_id) -> None:
+    con.execute("DELETE FROM reviews WHERE raw_note_id = ?", (raw_note_id,))
+    con.commit()
+
+
+def reviews(con) -> dict[int, dict]:
+    return {r["raw_note_id"]: dict(r, payload=json.loads(r["payload"])) for r in con.execute("SELECT * FROM reviews")}

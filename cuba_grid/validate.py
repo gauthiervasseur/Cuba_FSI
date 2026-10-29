@@ -140,11 +140,23 @@ def build(model: str | None = None) -> None:
     notes = con.execute("SELECT * FROM raw_notes WHERE is_daily_note = 1 ORDER BY note_date").fetchall()
     llm = _latest_extractions(con, f"llm:{model}" if model else "llm:")
     rx = {k: v[1] for k, v in _latest_extractions(con, "regex").items()}
-    rows = []
+    reviewed = db.reviews(con)
+    rows, review_log = [], []
     for n in notes:
         flags: list[str] = []
         regex_vals = rx.get(n["id"], {})
-        if n["id"] in llm:
+        rev = reviewed.get(n["id"])
+        if rev:
+            # A person's reading replaces the extractors'. The checks below still run, as information.
+            model = _flatten(llm[n["id"]][1])[0] if n["id"] in llm else {}
+            if rev["status"] == "validated":
+                values = {**model, **{f: rev["payload"].get(f) for f in SCALARS}}
+            else:
+                values = {**{f: None for f in SCALARS}, "note_type": "rejected"}
+            method, regex_agrees = "human", None
+            flags.append(f"human_{rev['status']}")
+            review_log.append(_review_row(n, rev, model))
+        elif n["id"] in llm:
             method, payload = llm[n["id"]]
             values, quotes = _flatten(payload)
             _check_quotes(values, quotes, n["raw_text"], flags, regex_vals)
@@ -171,12 +183,13 @@ def build(model: str | None = None) -> None:
             "extraction_method": method,
             "regex_agrees": regex_agrees,
             "validation_flags": "|".join(flags),
-            "needs_review": any(f.startswith(HARD) for f in flags),
+            "needs_review": not rev and any(f.startswith(HARD) for f in flags),
         })
 
     OUT.mkdir(exist_ok=True)
     _write(OUT / "notes_extracted.csv", rows)
-    daily = _pick_daily(rows)
+    _write(OUT / "human_reviews.csv", review_log)
+    daily = _pick_daily([r for r in rows if r["note_type"] != "rejected"])
     _write(OUT / "daily.csv", daily)
     review = [dict(r, text=_text(con, r["raw_note_id"])) for r in rows if r["needs_review"]]
     _write(OUT / "review_queue.csv", review)
@@ -184,6 +197,17 @@ def build(model: str | None = None) -> None:
     _write(OUT / "coverage_by_month.csv", cov)
     log.info("%d notes, %d days, %d in review queue -> %s", len(rows), len(daily), len(review), OUT)
     _print_coverage(cov)
+
+
+def _review_row(note, rev, model):
+    """One line of the review log: who decided what, and which figures differ from the model's."""
+    changes = [f"{f}: {model.get(f)} -> {rev['payload'].get(f)}"
+               for f in SCALARS if rev["status"] == "validated" and model.get(f) != rev["payload"].get(f)]
+    return {
+        "raw_note_id": note["id"], "note_date": note["note_date"], "source_url": note["source_url"],
+        "status": rev["status"], "reviewer": rev["reviewer"], "reviewed_at": rev["reviewed_at"],
+        "changed_from_model": "; ".join(changes), "interpretation": rev["interpretation"],
+    }
 
 
 def _text(con, note_id):

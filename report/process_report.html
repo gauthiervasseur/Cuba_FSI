@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cuba Grid Data Trail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, like a utility's operations log; the pipeline strip and charts break out a little wider. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --ink: #15212c;
+  --muted: #586572;
+  --rule: #d6dde3;
+  --gap: #e1e6eb;
+  --accent: #b86a00;      /* the deficit: amber, as on a load-shedding board */
+  --accent-soft: #fbefd9;
+  --s1: #2a78d6;          /* Cubadebate */
+  --s2: #eb6834;          /* Granma */
+  --good: #1d7a4a;
+  --warn: #9a6400;
+  --bad: #b3362f;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f161d; --surface: #17212b; --ink: #e6ecf1; --muted: #9eabb7; --rule: #2a3743;
+    --gap: #26323d; --accent: #e09a35; --accent-soft: #2e2414; --s1: #3987e5; --s2: #d95926;
+    --good: #4fb882; --warn: #e0a53e; --bad: #e66767; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f161d; --surface: #17212b; --ink: #e6ecf1; --muted: #9eabb7; --rule: #2a3743;
+  --gap: #26323d; --accent: #e09a35; --accent-soft: #2e2414; --s1: #3987e5; --s2: #d95926;
+  --good: #4fb882; --warn: #e0a53e; --bad: #e66767; color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--ink); font: 400 17px/1.6 var(--font-body); }
+.page {
+  max-width: 980px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 48px 72px;
+  display: grid; gap: 64px;
+}
+.col { max-width: 680px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; line-height: 1.05; margin: 0; text-wrap: balance; letter-spacing: .005em; }
+h1 { font-size: clamp(40px, 7vw, 64px); text-transform: uppercase; }
+h2 { font-size: clamp(28px, 4.4vw, 38px); text-transform: uppercase; }
+h3 { font-size: 22px; font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font: 500 12px/1.4 var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 20px; color: var(--ink); }
+.muted { color: var(--muted); }
+a { color: var(--s1); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--font-data); font-size: .86em; }
+section { display: grid; gap: 20px; }
+.stack { display: grid; gap: 14px; }
+.step-no { font: 600 15px/1 var(--font-data); color: var(--accent); }
+
+/* Header */
+header { display: grid; gap: 20px; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.theme { display: inline-flex; border: 1px solid var(--rule); border-radius: 99px; padding: 3px; background: var(--surface); }
+.theme button { font: 500 12px/1 var(--font-data); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: none; border: 0; border-radius: 99px; padding: 7px 12px; cursor: pointer; }
+.theme button:hover { color: var(--ink); }
+.theme button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-block: 1px solid var(--rule); }
+.stat { padding: 16px 16px 16px 0; display: grid; gap: 4px; }
+.stat + .stat { padding-left: 16px; border-left: 1px solid var(--rule); }
+.stat b { font: 700 40px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 14px; color: var(--muted); line-height: 1.35; }
+@media (max-width: 700px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(3) { padding-left: 0; border-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--rule); }
+}
+
+/* Pipeline strip */
+.pipeline { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; counter-reset: s; }
+.pipeline li { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 12px 12px; display: grid; gap: 6px; align-content: start; position: relative; min-width: 0; }
+.pipeline li::after { content: ""; position: absolute; right: -8px; top: 22px; width: 8px; height: 2px; background: var(--accent); }
+.pipeline li:last-child::after { display: none; }
+.pipeline .n { font: 700 34px/1 var(--font-display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.pipeline .k { font: 600 13px/1.2 var(--font-data); text-transform: uppercase; letter-spacing: .06em; }
+.pipeline .d { font-size: 14px; line-height: 1.35; color: var(--muted); }
+.pipeline .lbl { font-size: 13px; line-height: 1.3; color: var(--ink); }
+@media (max-width: 820px) { .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pipeline li:nth-child(3)::after { display: none; } }
+@media (max-width: 480px) { .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pipeline li:nth-child(3)::after { display: block; } .pipeline li:nth-child(2n)::after { display: none; } }
+
+/* Source table */
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); }
+th { font: 500 12px/1.3 var(--font-data); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+td.num { font-variant-numeric: tabular-nums; font-family: var(--font-data); font-size: 14px; white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--font-data); padding: 5px 8px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.ok { color: var(--good); } .chip.part { color: var(--warn); } .chip.no { color: var(--bad); } .chip.off { color: var(--muted); }
+
+/* Charts */
+figure { margin: 0; display: grid; gap: 10px; }
+figcaption { font-size: 14px; color: var(--muted); }
+.chart { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 12px 8px; position: relative; }
+.chart-scroll { overflow-x: auto; }
+.chart svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.chart text { font: 400 11px var(--font-data); fill: var(--muted); }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend i.line { height: 2px; border-radius: 0; width: 18px; }
+.legend i.dash { height: 0; width: 18px; border-top: 2px dashed var(--muted); background: none; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font: 400 12.5px/1.45 var(--font-data); padding: 8px 10px; border-radius: 5px; white-space: nowrap; z-index: 2; }
+.tip b { font-weight: 500; }
+
+.yearly { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--rule); }
+.yearly div { padding: 10px 0 0; display: grid; gap: 2px; }
+.yearly b { font: 600 26px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.yearly span { font: 400 12px var(--font-data); color: var(--muted); }
+
+/* Extraction */
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 700px) { .two { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.panel ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 15px; }
+.frames { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.frames > div { padding: 16px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.frames > div + div { border-left: 1px solid var(--rule); }
+.frames .when { font: 600 13px var(--font-data); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.frames p { font-size: 15px; line-height: 1.45; }
+@media (max-width: 700px) { .frames { grid-template-columns: 1fr; } .frames > div + div { border-left: 0; border-top: 1px solid var(--rule); } }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font: 400 13px/1.55 var(--font-data); }
+pre .k { color: var(--s1); } pre .v { color: var(--accent); }
+.formats { font-size: 15px; }
+.formats td:first-child { font-family: var(--font-data); font-size: 13.5px; }
+
+/* Flags */
+.flags { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 700px) { .flags { grid-template-columns: 1fr; } }
+.flags dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 15px; }
+.flags dt { font: 500 12.5px/1.6 var(--font-data); }
+.flags dd { margin: 0; color: var(--muted); }
+.split { display: flex; height: 34px; gap: 2px; border-radius: 4px; overflow: hidden; }
+.split div { display: flex; align-items: center; padding: 0 10px; font: 500 13px var(--font-data); color: var(--bg); white-space: nowrap; min-width: 0; }
+.split-key { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--muted); }
+.funnel { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; align-items: center; gap: 10px 14px; }
+.funnel b { font: 700 44px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.funnel .arrow { font: 600 15px var(--font-data); color: var(--accent); }
+.funnel span.l { display: block; font-size: 13px; color: var(--muted); line-height: 1.3; }
+
+/* Accuracy */
+.score { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 700px) { .score { grid-template-columns: 1fr; } }
+.score .panel b { font: 700 42px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; font-size: 15px; border-radius: 0 6px 6px 0; }
+
+ol.open { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+footer { border-top: 1px solid var(--rule); padding-top: 18px; font-size: 14px; color: var(--muted); display: grid; gap: 6px; }
+</style>
+<style>body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important; }</style>
+</head>
+<body>
+
+<div class="page">
+
+<header>
+  <div class="topbar">
+    <p class="eyebrow">Cuba · Unión Eléctrica daily notes · updated 29 October 2026</p>
+    <div class="theme" role="group" aria-label="Colour theme">
+      <button type="button" id="theme-light" data-set="light" aria-pressed="false">Light</button>
+      <button type="button" id="theme-dark" data-set="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <h1>How the Cuba grid dataset was built</h1>
+  <p class="lede col">Every morning the Unión Eléctrica (UNE) publishes a note: yesterday's worst shortfall, the situation at dawn, and tonight's forecast deficit. State outlets republish it. This page traces how those notes became a daily table, what failed along the way, and how far the numbers can be trusted.</p>
+  <div class="stats">
+    <div class="stat"><b>1,565</b><span>days with a note, March 2021 to October 2026</span></div>
+    <div class="stat"><b>93%</b><span>of days covered since June 2022, when the series becomes regular</span></div>
+    <div class="stat"><b>23</b><span>figures read from each note, each with a verbatim quote</span></div>
+    <div class="stat"><b>50</b><span>days still flagged for a human to check</span></div>
+  </div>
+</header>
+
+<section>
+  <p class="eyebrow">The pipeline</p>
+  <ol class="pipeline">
+    <li><span class="n">1,794</span><span class="k">Find</span><span class="d">articles in the Wayback Machine index whose web address matches a UNE note</span></li>
+    <li><span class="n">1,571</span><span class="k">Fetch</span><span class="d">archived copies that are the daily note itself, text kept apart from figures</span></li>
+    <li><span class="n">2&times;</span><span class="k">Read</span><span class="d">Claude Haiku 5.5 and a separate set of text patterns read each note independently</span></li>
+    <li><span class="n">78</span><span class="k">Check</span><span class="d">notes failed a cross-check: quotes, arithmetic, ranges, dates</span></li>
+    <li><span class="n">50</span><span class="k">Re-read</span><span class="d">still flagged after Claude Sonnet 5.5 re-read the 78</span></li>
+    <li><span class="n">1,565</span><span class="k">Publish</span><span class="d">rows in <code>daily.csv</code>, one per day, best source first</span></li>
+  </ol>
+</section>
+
+<section>
+  <div class="stack col">
+    <span class="step-no">01 · Find and fetch</span>
+    <h2>Where the notes came from</h2>
+    <p>The plan was to read Cubadebate's own site first and fill gaps elsewhere. Cubadebate refused every automated connection, so the archive copies kept by the Internet Archive became the main source. Its index can be searched by web address, and Cubadebate dates each article in the address, so every month from 2018 onward could be listed and fetched.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Source</th><th>Outcome</th><th>Daily notes</th><th>What happened</th></tr></thead>
+      <tbody>
+        <tr><td>Cubadebate, direct (site and its WordPress API)</td><td><span class="chip no">Refused</span></td><td class="num">0</td><td>Tried from three networks. The secure connection was cut right after it opened; plain requests got HTTP 403. The block was not worked around.</td></tr>
+        <tr><td>Cubadebate, Wayback Machine copies</td><td><span class="chip ok">Main source</span></td><td class="num">1,535</td><td>Only copies saved with status 200; the archive had also stored some 403 error pages under the same addresses.</td></tr>
+        <tr><td>Granma, Wayback Machine copies</td><td><span class="chip part">Gap filler</span></td><td class="num">36</td><td>Searched only for days Cubadebate missed. Most of its contribution is in 2026.</td></tr>
+        <tr><td>Radio Rebelde, CubaSí, ACN</td><td><span class="chip off">Not reached</span></td><td class="num">0</td><td>Archive searches timed out or came back empty.</td></tr>
+        <tr><td>UNE posts on Facebook and X</td><td><span class="chip off">Excluded</span></td><td class="num">0</td><td>Left out by design; usable only for manual spot checks.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="col muted">From 2018 to 2020 the archive holds 52 UNE articles but no daily notes in this form. The first one found is dated 16 March 2021; publication becomes daily in June 2022.</p>
+</section>
+
+<section>
+  <div class="stack col">
+    <span class="step-no">02 · Coverage</span>
+    <h2>Which days are missing</h2>
+    <p>Each bar is one month. The grey part is days with no note from any source. Coverage is the first output of the pipeline, not an afterthought: a monthly average built on 17 days of 30 means less than one built on 30.</p>
+  </div>
+  <figure>
+    <div class="legend" aria-hidden="true">
+      <span><i style="background:var(--s1)"></i>Cubadebate</span>
+      <span><i style="background:var(--s2)"></i>Granma</span>
+      <span><i style="background:var(--gap)"></i>No note found</span>
+    </div>
+    <div class="chart"><div class="chart-scroll"><svg id="cov" role="img" aria-label="Days covered per month by source, March 2021 to October 2026"></svg></div><div class="tip" hidden></div></div>
+    <figcaption>Days per month. October 2026 counts days up to the 29th, the latest collection date; the archive had no copy yet for 25, 26, 28 and 29 October. Source: <code>outputs/coverage_by_month.csv</code>.</figcaption>
+  </figure>
+  <div class="stack">
+    <p class="col">Since 1 June 2022: <b>1,494 of 1,612 days</b> up to 29 October 2026 have a note, so <b>118 are missing (7%)</b>. Counted from the first note in March 2021 the gap is 24%, because the 2021–22 notes were irregular.</p>
+    <div class="yearly" aria-label="Missing days per year since June 2022">
+      <div><b>7</b><span>2022 (from June)</span></div>
+      <div><b>9</b><span>2023</span></div>
+      <div><b>30</b><span>2024</span></div>
+      <div><b>11</b><span>2025</span></div>
+      <div><b>61</b><span>2026 (to 29 Oct)</span></div>
+    </div>
+    <p class="col muted">The 2026 gap is where the archive saved fewer Cubadebate pages; Granma filled 30 days of it. Some missing days may have had no note at all: 19–22 October 2024 follow the nationwide blackout of 18 October.</p>
+  </div>
+</section>
+
+<section>
+  <div class="stack col">
+    <span class="step-no">03 · Read</span>
+    <h2>Two readers, every note</h2>
+    <p>Each note covers three moments, and the same word ("afectación") means something different in each. The extraction keeps them apart.</p>
+  </div>
+  <div class="frames">
+    <div><span class="when">Yesterday</span><p>Highest shortfall and its time, whether the deficit lasted all day, when service was restored.</p></div>
+    <div><span class="when">This morning</span><p>Snapshot time, available capacity, demand and the load cut at that moment; expected shortfall at midday.</p></div>
+    <div><span class="when">Tonight's peak</span><p>Forecast availability, demand, deficit and the load that will be cut. Causes: plant breakdowns, maintenance, fuel shortages, solar output.</p></div>
+  </div>
+  <div class="two">
+    <div class="panel">
+      <h3>Claude Haiku 5.5</h3>
+      <ul>
+        <li>Reads the whole note and fills a strict schema of 23 figures plus lists of broken and maintained units.</li>
+        <li>Returns every figure with the exact words it came from, so each value can be checked against the text.</li>
+        <li>Prompt version 4; about $2 for a full run over all 1,571 notes.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Text patterns</h3>
+      <ul>
+        <li>Written by hand, with no model involved, for the 11 core figures.</li>
+        <li>Its only job is to disagree when the model is wrong.</li>
+        <li>Reads only within the sentence that names the figure, so it cannot borrow a number from the next one.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="two">
+    <figure>
+      <pre aria-label="Illustrative model output for one figure"><span class="k">"field"</span>: <span class="v">"forecast_affectation_mw"</span>,
+<span class="k">"value"</span>: <span class="v">"1 850"</span>,
+<span class="k">"quote"</span>: <span class="v">"se pronostica una afectación de 1 850 MW"</span></pre>
+      <figcaption>Illustrative output for one figure. The real notes are not reproduced here.</figcaption>
+    </figure>
+    <div class="table-wrap">
+      <table class="formats">
+        <thead><tr><th>Written in the note</th><th>Read as</th></tr></thead>
+        <tbody>
+          <tr><td>1 850 · 1.850 · 1,850</td><td class="num">1850 MW</td></tr>
+          <tr><td>2 mil 772 · dos mil 912</td><td class="num">2772 · 2912</td></tr>
+          <tr><td>1028.8</td><td class="num">1029</td></tr>
+          <tr><td>7:20 p.m. · 02:44 de la tarde</td><td class="num">19:20 · 14:44</td></tr>
+          <tr><td>seis de la mañana</td><td class="num">06:00</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="stack col">
+    <span class="step-no">04 · Check and re-read</span>
+    <h2>What sends a note to review</h2>
+    <p>Every figure goes through the same checks. Some failures mean the reading is suspect; others mean the reading is right and the note itself is inconsistent.</p>
+  </div>
+  <div class="flags">
+    <div class="panel">
+      <h3>Sends the note to review</h3>
+      <dl>
+        <dt>quote not in text</dt><dd>the quoted words do not appear in the note</dd>
+        <dt>value not in quote</dt><dd>the number is not in its own quote</dd>
+        <dt>patterns disagree</dt><dd>the second reader found a different number</dd>
+        <dt>out of range</dt><dd>outside plausible bounds, e.g. demand above 4,200 MW</dd>
+        <dt>arithmetic</dt><dd>availability minus demand does not give the deficit</dd>
+        <dt>bad time</dt><dd>a time that cannot exist or is out of order</dd>
+        <dt>weekday</dt><dd>the weekday named does not match the date</dd>
+      </dl>
+    </div>
+    <div class="panel">
+      <h3>Kept, with a note</h3>
+      <dl>
+        <dt>source arithmetic</dt><dd>both readers agree, but the UNE's own sums do not add up (16 days)</dd>
+        <dt>paraphrased quote</dt><dd>the model reworded the quote, but the patterns confirm the value</dd>
+        <dt>snapshot vs gap</dt><dd>the morning cut differs from demand minus availability (9 days)</dd>
+      </dl>
+    </div>
+  </div>
+  <div class="stack">
+    <p class="col">Haiku's first pass flagged 78 notes. Claude Sonnet 5.5, a larger model, re-read only those. Where the two models gave different figures, each disagreement was checked against the note by hand.</p>
+    <div class="funnel">
+      <div><b>78</b><span class="l">flagged after Haiku</span></div>
+      <span class="arrow">→ Sonnet re-read →</span>
+      <div><b>50</b><span class="l">still flagged, left for a person</span></div>
+    </div>
+    <figure>
+      <div class="split" role="img" aria-label="62 disagreements: Sonnet right on 35, debatable 19, Haiku right on 8">
+        <div style="flex:35;background:var(--s1)">Sonnet 35</div>
+        <div style="flex:19;background:var(--muted)">Debatable 19</div>
+        <div style="flex:8;background:var(--accent)">Haiku 8</div>
+      </div>
+      <figcaption>62 figures where the models disagreed, by which one matched the note. Sonnet was better at telling the night maximum from a morning episode in the 2023 notes; Haiku was better at restoration times, which Sonnet tended to leave out.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <div class="stack col">
+    <span class="step-no">05 · Score</span>
+    <h2>How accurate is it?</h2>
+    <p>The model was scored against a reference set of 27 notes from October 2024, with each figure labelled separately.</p>
+  </div>
+  <div class="score">
+    <div class="panel"><b>100%</b><span>Haiku 5.5, on all 23 figures</span></div>
+    <div class="panel"><b>96%</b><span>Text patterns on yesterday's maximum and its time (one missed); 100% on the other nine</span></div>
+    <div class="panel"><b>150</b><span>notes sampled for a larger test, 25 per year 2021–2026, waiting to be labelled</span></div>
+  </div>
+  <p class="note col">Read the 100% with care. The 27 reference labels were written by Claude, not by a person, and come from a single month. They show the pipeline works on that month; they do not establish its error rate. Hand-labelling the 150-note sample is what will.</p>
+</section>
+
+<section>
+  <div class="stack col">
+    <span class="step-no">06 · Result</span>
+    <h2>What the series shows</h2>
+    <p>The figure most notes report the same way is yesterday's maximum shortfall. Its monthly average rose from under 500 MW in mid-2022 to over 2,000 MW in mid-2026.</p>
+  </div>
+  <figure>
+    <div class="legend" aria-hidden="true">
+      <span><i class="line" style="background:var(--accent)"></i>Monthly average</span>
+      <span><i class="dash"></i>Worst day of the month</span>
+    </div>
+    <div class="chart"><div class="chart-scroll"><svg id="def" role="img" aria-label="Monthly average and worst-day maximum shortfall in MW, 2021 to 2026"></svg></div><div class="tip" hidden></div></div>
+    <figcaption>Yesterday's maximum shortfall reported in each note, in MW, by month. Months with fewer than 7 notes are left out. Source: <code>outputs/daily.csv</code>, column <code>prev_day_max_affectation_mw</code>.</figcaption>
+  </figure>
+  <p class="col muted">In 2023 some notes give separate daytime and night-time maxima; the table keeps one, so those months may read low. Two days carry a grid-collapse flag (19 February 2023, 5 December 2024).</p>
+</section>
+
+<section>
+  <div class="stack col">
+    <span class="step-no">07 · Open items</span>
+    <h2>What would make it stronger</h2>
+  </div>
+  <ol class="open col">
+    <li>Label the 150-note sample by hand and score both models on it.</li>
+    <li>Ask Cubadebate for access; its own site would close most of the 2026 gap.</li>
+    <li>Split yesterday's maximum into day and night fields for the 2023 notes.</li>
+    <li>Check the 50 flagged days by hand.</li>
+  </ol>
+</section>
+
+<footer>
+  <span>Code and numeric outputs: <a href="https://github.com/gauthiervasseur/Cuba_FSI" target="_blank" rel="noopener">github.com/gauthiervasseur/Cuba_FSI</a>. Full article texts stay local and are not redistributed.</span>
+  <span>Built with Claude Haiku 5.5 and Claude Sonnet 5.5; collection through the Internet Archive's Wayback Machine.</span>
+</footer>
+</div>
+
+<script>
+// Theme switch: an explicit choice sets data-theme on the root; without one the page follows the system setting.
+(function () {
+  const root = document.documentElement, buttons = document.querySelectorAll(".theme button");
+  const current = () => root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const paint = () => buttons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.set === current())));
+  try { const saved = localStorage.getItem("cuba-grid-theme"); if (saved === "light" || saved === "dark") root.dataset.theme = saved; } catch (e) {}
+  buttons.forEach(b => b.addEventListener("click", () => {
+    root.dataset.theme = b.dataset.set;
+    try { localStorage.setItem("cuba-grid-theme", b.dataset.set); } catch (e) {}
+    paint();
+  }));
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
+  paint();
+})();
+
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const label = m => MON[+m.slice(5) - 1] + " " + m.slice(0, 4);
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+
+  // [month, days in month, days found, of which Granma]
+  const COV = [["2021-03",31,1,0],["2021-04",30,0,0],["2021-05",31,0,0],["2021-06",30,0,0],["2021-07",31,0,0],["2021-08",31,1,0],["2021-09",30,13,0],["2021-10",31,22,0],["2021-11",30,24,0],["2021-12",31,2,0],["2022-01",31,0,0],["2022-02",28,0,0],["2022-03",31,1,0],["2022-04",30,0,0],["2022-05",31,7,0],["2022-06",30,29,1],["2022-07",31,31,0],["2022-08",31,30,0],["2022-09",30,27,0],["2022-10",31,31,0],["2022-11",30,28,0],["2022-12",31,31,0],["2023-01",31,31,0],["2023-02",28,28,0],["2023-03",31,30,0],["2023-04",30,30,0],["2023-05",31,31,0],["2023-06",30,30,0],["2023-07",31,28,0],["2023-08",31,30,0],["2023-09",30,30,0],["2023-10",31,31,0],["2023-11",30,28,0],["2023-12",31,29,0],["2024-01",31,25,0],["2024-02",29,28,0],["2024-03",31,31,0],["2024-04",30,28,0],["2024-05",31,30,0],["2024-06",30,30,0],["2024-07",31,24,0],["2024-08",31,29,0],["2024-09",30,30,0],["2024-10",31,27,0],["2024-11",30,24,0],["2024-12",31,30,0],["2025-01",31,30,0],["2025-02",28,27,0],["2025-03",31,27,0],["2025-04",30,29,0],["2025-05",31,30,0],["2025-06",30,30,0],["2025-07",31,31,0],["2025-08",31,31,2],["2025-09",30,29,0],["2025-10",31,30,2],["2025-11",30,30,0],["2025-12",31,30,1],["2026-01",31,31,2],["2026-02",28,27,0],["2026-03",31,27,0],["2026-04",30,30,1],["2026-05",31,26,7],["2026-06",30,17,7],["2026-07",31,18,6],["2026-08",31,18,2],["2026-09",30,26,2],["2026-10",29,21,3]];
+
+  // month: [mean, max, notes]
+  const DEF = {"2021-08":[325,325,1],"2021-09":[322,711,9],"2021-10":[170,480,20],"2021-11":[68,358,20],"2021-12":[0,0,2],"2022-03":[115,115,1],"2022-05":[221,536,7],"2022-06":[392,698,27],"2022-07":[489,860,28],"2022-08":[939,1220,30],"2022-09":[862,1311,26],"2022-10":[1138,1568,31],"2022-11":[1157,1609,28],"2022-12":[264,1306,31],"2023-01":[105,880,30],"2023-02":[344,1413,27],"2023-03":[237,786,30],"2023-04":[483,969,27],"2023-05":[293,736,30],"2023-06":[292,995,28],"2023-07":[40,304,26],"2023-08":[105,571,30],"2023-09":[447,1021,29],"2023-10":[329,972,31],"2023-11":[380,1168,28],"2023-12":[121,534,29],"2024-01":[342,1111,24],"2024-02":[859,1381,27],"2024-03":[958,1566,30],"2024-04":[304,816,27],"2024-05":[1048,1474,30],"2024-06":[715,1270,30],"2024-07":[543,1065,24],"2024-08":[693,1351,29],"2024-09":[902,1514,30],"2024-10":[1303,1642,27],"2024-11":[1478,1768,24],"2024-12":[1389,1619,29],"2025-01":[1098,1708,30],"2025-02":[1635,1775,27],"2025-03":[1480,1736,26],"2025-04":[1652,1901,28],"2025-05":[1547,1775,30],"2025-06":[1655,1936,30],"2025-07":[1771,2054,31],"2025-08":[1722,2010,31],"2025-09":[1817,2052,29],"2025-10":[1690,1951,30],"2025-11":[1527,1964,30],"2025-12":[1992,2185,30],"2026-01":[1828,2010,31],"2026-02":[1800,2011,27],"2026-03":[1869,2158,26],"2026-04":[1600,1945,30],"2026-05":[1891,2153,25],"2026-06":[2021,2208,17],"2026-07":[2121,2315,17],"2026-08":[2261,2411,18],"2026-09":[2124,2396,24],"2026-10":[1913,2130,21]};
+
+  function tipper(svg) {
+    const box = svg.closest(".chart"), tip = box.querySelector(".tip");
+    return {
+      show(html, x, y) {
+        tip.innerHTML = html; tip.hidden = false;
+        const b = box.getBoundingClientRect(), s = svg.getBoundingClientRect(), sc = s.width / svg.viewBox.baseVal.width;
+        let left = s.left - b.left + x * sc + 12, top = s.top - b.top + y * sc - 10;
+        if (left + tip.offsetWidth > b.width - 4) left = s.left - b.left + x * sc - tip.offsetWidth - 12;
+        tip.style.left = Math.max(4, left) + "px"; tip.style.top = Math.max(4, top) + "px";
+      },
+      hide() { tip.hidden = true; }
+    };
+  }
+
+  // Coverage: stacked monthly bars, Cubadebate at the base, Granma above, missing on top.
+  (function () {
+    const svg = document.getElementById("cov");
+    const L = 30, T = 8, bw = 10, step = 12, H = 180, B = 26, W = L + COV.length * step + 4;
+    svg.setAttribute("viewBox", `0 0 ${W} ${T + H + B}`);
+    const y = d => T + H - d / 31 * H;
+    [0, 10, 20, 30].forEach(t => { el("line", { x1: L, x2: W, y1: y(t), y2: y(t), class: "grid" }, svg); el("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }, svg).textContent = t; });
+    const t = tipper(svg);
+    COV.forEach(([m, days, found, gr], i) => {
+      const x = L + i * step + 1, cd = found - gr, miss = days - found;
+      const seg = (from, n, fill) => { if (n <= 0) return; const top = y(from + n), h = y(from) - top - (from > 0 ? 2 : 0); if (h > 0) el("rect", { x, y: top, width: bw, height: h, rx: from + n === days ? 2 : 0, fill }, svg); };
+      seg(0, cd, "var(--s1)"); seg(cd, gr, "var(--s2)"); seg(found, miss, "var(--gap)");
+      if (m.endsWith("-01") || i === 0) { el("text", { x: x, y: T + H + 16 }, svg).textContent = m.slice(0, 4); el("line", { x1: x - 1, x2: x - 1, y1: T + H, y2: T + H + 5, class: "grid" }, svg); }
+      const hit = el("rect", { x: x - 1, y: T, width: step, height: H, fill: "transparent" }, svg);
+      hit.addEventListener("mouseenter", () => t.show(`<b>${label(m)}</b><br>Cubadebate ${cd}<br>Granma ${gr}<br>No note ${miss}`, x + bw, y(days) + 20));
+      hit.addEventListener("mouseleave", t.hide);
+    });
+    // Mark where the regular series begins.
+    const j = COV.findIndex(r => r[0] === "2022-06"), xm = L + j * step;
+    el("line", { x1: xm, x2: xm, y1: T - 4, y2: T + H, stroke: "var(--accent)", "stroke-width": 1.5, "stroke-dasharray": "3 3" }, svg);
+    const lt = el("text", { x: xm + 4, y: T + 6 }, svg); lt.textContent = "daily from June 2022"; lt.style.fill = "var(--ink)";
+  })();
+
+  // Shortfall: monthly mean (solid) and worst day (dashed); gaps where a month has fewer than 7 notes.
+  (function () {
+    const svg = document.getElementById("def");
+    const months = [];
+    for (let yy = 2021, mm = 8; yy < 2026 || (yy === 2026 && mm <= 10); mm++) { if (mm > 12) { mm = 1; yy++; } months.push(`${yy}-${String(mm).padStart(2, "0")}`); }
+    const L = 44, T = 10, H = 220, B = 26, step = 11, W = L + months.length * step + 40;
+    svg.setAttribute("viewBox", `0 0 ${W} ${T + H + B}`);
+    const X = i => L + i * step + step / 2, Y = v => T + H - v / 2500 * H;
+    [0, 500, 1000, 1500, 2000, 2500].forEach(v => { el("line", { x1: L, x2: W - 40, y1: Y(v), y2: Y(v), class: "grid" }, svg); el("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end" }, svg).textContent = v.toLocaleString("en-US"); });
+    months.forEach((m, i) => { if (m.endsWith("-01")) { el("text", { x: X(i) - 4, y: T + H + 16 }, svg).textContent = m.slice(0, 4); el("line", { x1: X(i), x2: X(i), y1: T + H, y2: T + H + 5, class: "grid" }, svg); } });
+    const ok = m => DEF[m] && DEF[m][2] >= 7;
+    const path = k => { let d = "", pen = false; months.forEach((m, i) => { if (ok(m)) { d += (pen ? "L" : "M") + X(i).toFixed(1) + " " + Y(DEF[m][k]).toFixed(1); pen = true; } else pen = false; }); return d; };
+    el("path", { d: path(1), fill: "none", stroke: "var(--muted)", "stroke-width": 1.5, "stroke-dasharray": "4 3" }, svg);
+    el("path", { d: path(0), fill: "none", stroke: "var(--accent)", "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+    const li = months.length - 1, lm = months[li];
+    el("circle", { cx: X(li), cy: Y(DEF[lm][0]), r: 4, fill: "var(--accent)", stroke: "var(--surface)", "stroke-width": 2 }, svg);
+    const pk = months.reduce((a, m) => ok(m) && DEF[m][1] > (DEF[a] ? DEF[a][1] : 0) ? m : a, "");
+    const pi = months.indexOf(pk), pt = el("text", { x: X(pi) - 6, y: Y(DEF[pk][1]) - 6, "text-anchor": "end" }, svg);
+    pt.textContent = `${DEF[pk][1].toLocaleString("en-US")} MW, ${label(pk)}`; pt.style.fill = "var(--ink)";
+    // Hover: crosshair plus tooltip on the nearest month with data.
+    const cross = el("line", { y1: T, y2: T + H, stroke: "var(--muted)", "stroke-width": 1, visibility: "hidden" }, svg);
+    const dot = el("circle", { r: 4, fill: "var(--accent)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" }, svg);
+    const t = tipper(svg);
+    const hit = el("rect", { x: L, y: T, width: months.length * step, height: H, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", e => {
+      const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+      const q = p.matrixTransform(svg.getScreenCTM().inverse());
+      const i = Math.max(0, Math.min(months.length - 1, Math.round((q.x - L - step / 2) / step))), m = months[i];
+      if (!ok(m)) { t.hide(); cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); return; }
+      cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", X(i)); dot.setAttribute("cy", Y(DEF[m][0])); dot.setAttribute("visibility", "visible");
+      t.show(`<b>${label(m)}</b><br>Average ${DEF[m][0].toLocaleString("en-US")} MW<br>Worst day ${DEF[m][1].toLocaleString("en-US")} MW<br>${DEF[m][2]} notes`, X(i), Y(DEF[m][0]));
+    });
+    hit.addEventListener("mouseleave", () => { t.hide(); cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
+  })();
+})();
+</script>
+
+</body>
+</html>
