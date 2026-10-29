@@ -58,9 +58,10 @@ def _decode(body: bytes) -> str:
     return body.decode("utf-8", errors="replace")
 
 
-def fetch(url: str, *, check_robots: bool = True, retries: int = 3) -> str:
+def fetch(url: str, *, check_robots: bool = True, retries: int = 3, use_cache: bool = True) -> str:
+    """use_cache=False still writes the response, but ignores any copy already on disk."""
     path = _cache_path(url)
-    if path.exists():
+    if use_cache and path.exists():
         return _decode(path.read_bytes())
     if check_robots and not allowed_by_robots(url):
         raise FetchError(f"disallowed by robots.txt: {url}")

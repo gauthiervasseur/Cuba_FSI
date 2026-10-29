@@ -42,7 +42,9 @@ def list_captures(site: str, year: int, month: int) -> list[tuple[str, list[tupl
         # Not dated by path: an article is often archived weeks after it was published.
         to_y, to_m = (year + 1, month - 10) if month > 10 else (year, month + 2)
         params["from"], params["to"] = f"{year}{month:02d}", f"{to_y}{to_m:02d}"
-    body = fetch(f"{CDX}?{urlencode(params, doseq=True)}", check_robots=False)
+    # The index of a recent month keeps growing as the archive saves new pages, so re-query it.
+    recent = (dt.date.today() - dt.date(year, month, 1)).days < 92
+    body = fetch(f"{CDX}?{urlencode(params, doseq=True)}", check_robots=False, use_cache=not recent)
     rows = json.loads(body) if body.strip() else []  # CDX returns an empty body when nothing matches
     seen: dict[str, list[tuple[str, str]]] = {}
     for original, ts in rows[1:]:  # first row is the header
